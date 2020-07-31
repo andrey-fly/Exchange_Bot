@@ -59,10 +59,8 @@ class CurrencyLevel:
         self.rate_processing.get_rates()
         self.rate_processing.currencies_ref_dict_key = self.currency_dict_key
         if self.rate_processing.rate < self.my_level:
-            print(True)
             return True
         else:
-            print(False, self.my_level)
             return False
 
     def execute(self):
@@ -153,7 +151,6 @@ class ExchangeBot:
     def main_callback_handler(self):
         @self.bot.callback_query_handler(func=lambda call: True)
         def button_menu(call):
-            print(call.data)
             if call.data == 'Узнать курс валюты':
                 self.get_currency_rate_menu(call)
             elif call.data == 'Установить уровень валюты':
@@ -197,12 +194,6 @@ class ExchangeBot:
                                           'Отсеживаются следующие валюты:\n{}'.format(
                                               '\n'.join(self.currency_levels_dict[call.from_user.id].keys()))
                                           )
-                    # print(type(self.currency_levels_dict[call.message.from_user.id]))
-                    # if not self.currency_levels_dict[call.message.from_user.id]:
-                    #     self.bot.send_message(call.message.chat.id, 'У Вас пока нет отслеживаемых валют.')
-                    # else:
-                    #     self.bot.send_message(call.message.chat.id,
-                    #                           self.currency_levels_dict[call.message.from_user.id])
 
         @self.bot.message_handler(content_types=['text'])
         def main_menu(message):
@@ -234,41 +225,25 @@ class ExchangeBot:
 
     def process_currency_level(self, message, key):
         try:
-            print(float(message.text))
-            print(message.from_user.id)
-            # if key not in self.currency_levels_dict[message.from_user.id].keys():
             self.currency_levels_dict[message.from_user.id][key] = float(message.text)
             self.bot.send_message(message.chat.id, "Установлен следующий уровень для {}: {}.\n"
                                                    "Ожидайте уведомления.".format(key,
-                                                    self.currency_levels_dict[message.from_user.id][key]))
+                                                                                  self.currency_levels_dict[
+                                                                                      message.from_user.id][key]))
             self.temp_list.clear()
-            print(self.currency_levels_dict)
             self.check_currency_level(message, message.from_user.id, key)
-            print(self.currency_levels_dict)
         except ValueError:
-            print('Это не число.')
             self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
             self.bot.register_next_step_handler_by_chat_id(message.chat.id, self.process_currency_level, key)
 
     def check_currency_level(self, message, user_id_key, curr_key):
-        curr_keys = list(self.currency_levels_dict[user_id_key].keys())
-        # curr_levels = self.currency_levels_dict[user_id_key].items()
-        # for thread in threads:
         with concurrent.futures.ThreadPoolExecutor() as executor:
             future = executor.submit(CurrencyLevel(curr_key, self.currency_levels_dict[user_id_key][curr_key]).execute)
-            # future_to_curr = {executor.submit(CurrencyLevel(
-            #     curr_key,
-            #     self.currency_levels_dict[user_id_key][curr_key]
-            # ).execute): curr_key for curr_key in curr_keys}
-            # print(future_to_curr)
-            # for future in concurrent.futures.as_completed(future_to_curr):
-            #     current_key = future_to_curr[future]
             if not future.result():
                 self.bot.send_message(message.chat.id, "{}, поздравляю! {} упал до выбранного "
                                                        "Вами уровня. Можно менять :)".format(
                     message.from_user.first_name, curr_key))
                 self.currency_levels_dict[user_id_key].pop(curr_key)
-            # self.main_callback_handler()
 
     def execute(self):
         self.welcome_user()

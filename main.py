@@ -5,7 +5,6 @@ import telebot
 import requests
 import re
 from bs4 import BeautifulSoup
-import threading
 
 
 class RateProcessing:

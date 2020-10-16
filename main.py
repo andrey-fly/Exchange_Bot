@@ -1,5 +1,7 @@
 import concurrent.futures
 import datetime
+import os
+import sqlite3
 import time
 import telebot
 import requests
@@ -12,38 +14,78 @@ class RateProcessing:
 
     def __init__(self, dict_key=None):
         self.currencies_ref_dict = {
-            'EUR': 'https://www.google.com/search?ei=CHr2XtuzO6LprgTN0omIAg&q=euro&oq=%D1%83%D0%B3%D0%BA%D1%89'
-                   '&gs_lcp=CgZwc3ktYWIQARgDMggIABAKEAEQKjIGCAAQChABMgYIABAKEAEyBggAEAoQATIGCAAQChABMgYIABAKEA'
-                   'EyBggAEAoQATIGCAAQChABMgYIABAKEAEyBggAEAoQAToECAAQRzoHCAAQsQMQQzoFCAAQsQM6AggAOgQIABBDOgwI'
-                   'ABCxAxBDEEYQggI6BQgAEIMBUOcaWO8_YLJbaAFwAXgAgAF7iAHzBZIBBDExLjGYAQCgAQGqAQdnd3Mtd2l6sAEA&'
-                   'sclient=psy-ab',
-            'USD': 'https://www.google.com/search?q=%D0%BA%D1%83%D1%80%D1%81+%D0%B4%D0%BE%D0%BB%D0%BB%D0%B0%D1'
-                   '%80%D0%B0&oq=rehc&aqs=chrome.1.69i57j0l7.2693j0j8&sourceid=chrome&ie=UTF-8',
-            'CHF': 'https://www.google.com/search?q=%D1%88%D0%B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D1%81%D0%BA%D0%B8%D0%'
-                   'B9+%D1%84%D1%80%D0%B0%D0%BD%D0%BA&oq=idtqwfhcrb&aqs=chrome.1.69i57j0l3j46l2j0l2.5304j1j8&sourcei'
-                   'd=chrome&ie=UTF-8'
+            'EUR': 'https://www.google.com/search?ei=ijQkX56kHcGEwPAPtPSa2AQ&q=%D0%BA%D1%83%D1%80%D1%81+%D0%B5%D0%B2'
+                   '%D1%80%D0%BE+%D0%BA+%D1%80%D1%83%D0%B1%D0%BB%D1%8E&oq=%D0%BA%D1%83%D1%80%D1%81+%D0%B5%D0%B2%D1%80'
+                   '%D0%BE+%D0%BA+%D1%80%D1%83%D0%B1%D0%BB%D1%8E&gs_lcp=CgZwc3ktYWIQAzINCAAQsQMQgwEQRhCCAjIICAAQsQMQ'
+                   'gwEyCAgAELEDEIMBMgYIABAHEB4yCAgAELEDEIMBMgYIABAHEB4yAggAMgIIADIGCAAQBxAeMgIIADoHCAAQsAMQQzoICAAQ'
+                   'BxAKEB46BAgAEA1QhbERWPvWEWCe3hFoA3AAeACAAVaIAboGkgECMTOYAQCgAQGqAQdnd3Mtd2l6wAEB&sclient=psy-ab'
+                   '&ved=0ahUKEwiekdiV4_fqAhVBAhAIHTS6BksQ4dUDCAw&uact=5',
+            'USD': 'https://www.google.com/search?ei=fDQkX5esEsOxrgTI_ImADQ&q=%D0%BA%D1%83%D1%80%D1%81+%D0%B4%D0%BE%'
+                   'D0%BB%D0%BB%D0%B0%D1%80%D0%B0+%D0%BA+%D1%80%D1%83%D0%B1%D0%BB%D1%8E&oq=%D0%BA%D1%83%D1%80%D1%81+'
+                   '%D0%B4%D0%BE%D0%BB%D0%BB%D0%B0%D1%80%D0%B0+%D0%BA+%D1%80%D1%83%D0%B1%D0%BB%D1%8E&gs_lcp=CgZwc3k'
+                   'tYWIQAzIPCAAQsQMQgwEQQxBGEIICMggIABCxAxCDATIICAAQsQMQgwEyBQgAELEDMgIIADICCAAyAggAMggIABCxAxCDATI'
+                   'CCAAyAggAOgcIABCwAxBDOgoIABCxAxCDARBDOgQIABBDOgQIABAKOgkIABBDEEYQggI6BwgAELEDEENQsylYmWZglmhoBHAA'
+                   'eACAAWOIAewJkgECMTmYAQCgAQGqAQdnd3Mtd2l6wAEB&sclient=psy-ab&ved=0ahUKEwiX2vaO4_fqAhXDmIsKHUh-AtA'
+                   'Q4dUDCAw&uact=5',
+            'CHF': 'https://www.google.com/search?ei=rTUkX4bmMMTnrgTnpKLADg&q=%D0%BA%D1%83%D1%80%D1%81+%D1%88%D0%'
+                   'B2%D0%B5%D0%B9%D1%86%D0%B0%D1%80%D1%81%D0%BA%D0%BE%D0%B3%D0%BE+%D1%84%D1%80%D0%B0%D0%BD%D0%BA%'
+                   'D0%B0+%D0%BA+%D1%80%D1%83%D0%B1%D0%BB%D1%8E&oq=%D0%BA%D1%83%D1%80%D1%81+%D1%88%D0%B2%D0%B5%D0%'
+                   'B9%D1%86%D0%B0&gs_lcp=CgZwc3ktYWIQARgBMg0IABCxAxCDARBGEIICMgIIADICCAAyAggAMgIIADICCAAyAggAMgII'
+                   'ADICCAAyAggAOgcIABCwAxBDOggIABCxAxCDAToFCAAQsQM6CggAELEDEIMBEEM6BAgAEEM6DwgAELEDEIMBEEMQRhCCA'
+                   'lCkngNYg9QDYMLmA2gDcAB4AIABUIgBwQWSAQIxMZgBAKABAaoBB2d3cy13aXqwAQDAAQE&sclient=psy-ab',
+            'BTC': 'https://www.google.com/search?ei=NcIqX8q4FIqwrgSz3K6ACg&q=bitcoin+to+rub&oq=bitcoin+to+&gs_lcp='
+                   'CgZwc3ktYWIQARgBMg0IABCxAxCDARBGEIICMgIIADICCAAyAggAMgIIADICCAAyAggAMgIIADICCAAyAggAOggIABCxAxCD'
+                   'AToFCAAQsQM6AgguOgUILhCxAzoJCAAQsQMQChABOgoIABCxAxCDARBDOgQIABBDOgcIABCxAxBDOgwIABCxAxBDEEYQggI6'
+                   'CQgAEEMQRhCCAlCXLFiEggFguY8BaANwAHgAgAF9iAGgCJIBBDExLjKYAQCgAQGqAQdnd3Mtd2l6sAEAwAEB&sclient=psy-ab'
         }
-        self.currencies_ref_dict_key = dict_key
+        self.currency_rates_list = []
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/83.0.4103.106 Safari/537.36'
         }
-        self.rate = 0.0000
-        self.round_rate = 0.00
+        self.conn = sqlite3.connect("currencies_db.db")
+        self.cursor = self.conn.cursor()
 
-    def get_currency_ref(self):
-        return self.currencies_ref_dict[self.currencies_ref_dict_key]
-
-    def parse_html(self):
-        full_page = requests.get(self.get_currency_ref(), headers=self.headers)
+    def parse_html(self, key=None):
+        # Функция парсинга страницы
+        full_page = requests.get(self.currencies_ref_dict[key], headers=self.headers)
         soup = BeautifulSoup(full_page.content, 'html.parser')
         convert = soup.find_all('span', {'class': 'DFlfde SwHCTb', 'data-precision': 2})
         return str(convert[0])
 
-    def get_rates(self):
-        found_rates = re.findall(r'\d{,2}[.,]\d{,5}', self.parse_html())
-        self.rate = float(found_rates[0])
-        self.round_rate = float(found_rates[1].replace(',', '.'))
+    def normalize_rates(self, key=None):
+        # Функция, приводящая значения валют к общему виду
+        found_rate = re.findall(r'\d{,9}[.]\d{,5}', self.parse_html(key))
+        return round(float(found_rate[0]), 2)
+
+    def get_rate(self, key=None):
+        return self.normalize_rates(key)
+
+    def run(self, upd_time):
+        start_time = time.time() - upd_time
+        print(os.getenv('TG_TOKEN'))
+        while True:
+            if (time.time() - start_time) < upd_time:
+                continue
+            else:
+                start_time = time.time()
+                db_exists = int(self.cursor.execute("""SELECT COUNT(name) 
+                                                     FROM sqlite_master
+                                                     WHERE type='table' 
+                                                     AND name='updated_currencies'""").fetchone()[0])
+                if db_exists:
+                    for key in self.currencies_ref_dict:
+                        self.cursor.execute('UPDATE updated_currencies SET curr_value = ? WHERE curr_code = ?',
+                                            (self.get_rate(key), key))
+                        self.conn.commit()
+                else:
+                    self.cursor.execute("""CREATE TABLE updated_currencies(
+                                                                        curr_code VAR_CHAR(3),
+                                                                        curr_value DECIMAL(10, 2)
+                                                                        );""")
+                    for key in self.currencies_ref_dict:
+                        self.cursor.execute('INSERT INTO updated_currencies VALUES (?, ?)', (key, self.get_rate(key)))
+                        self.conn.commit()
 
 
 class CurrencyLevel:
@@ -65,7 +107,7 @@ class CurrencyLevel:
 
     def execute(self):
         while self.flag_on:
-            time.sleep(10)
+            time.sleep(1800)
             if self.result_comparison():
                 self.unexecute()
                 return False
@@ -78,14 +120,15 @@ class ExchangeBot:
 
     def __init__(self, rate_processing: RateProcessing):
         self.rates_class = rate_processing
-        self.tg_token = '1152544884:AAH-x7Gzd4RcX7sgOPLHKm1wV7OFxJ1YgPY'
+        self.tg_token = os.getenv('TG_TOKEN')
         self.menu = None
         self.markup = None
-        self.bot = telebot.TeleBot(self.tg_token, num_threads=1000)
+        self.bot = telebot.TeleBot(self.tg_token, num_threads=5)
         self.currency_variety_dict = {
             "Евро (€)": ["EUR", "€"],
             "Доллар ($)": ["USD", "$"],
-            "Швейцарский франк (₣)": ["CHF", "₣"]
+            "Швейцарский франк (₣)": ["CHF", "₣"],
+            "Биткойн (₿)": ["BTC", "₿"]
         }
         self.currency_levels_dict = {}
         self.temp_list = []
@@ -105,7 +148,7 @@ class ExchangeBot:
         def send_welcome(message):
             self.keyboard_command()
             self.bot.send_message(message.chat.id,
-                                  "Добро пожаловать, {}!\nЯ - ExchangeBot. Подскажу тебе актуальный курс валют "
+                                  "Добро пожаловать, {}!\nЯ - ExchangeBot. Подскажу Вам актуальный курс валют "
                                   "на данный момент. \nСписок доступных валют доступен по команде /currencies.\n"
                                   "Нужна помощь? Воспользуйтесь командой /help.\nДля вызова главного меню из любого "
                                   "места программы воспользуйтесь командой /menu.".format(message.from_user.first_name),
@@ -144,11 +187,13 @@ class ExchangeBot:
             self.menu.add(telebot.types.InlineKeyboardButton(text=item, callback_data=item))
 
     def show_main_menu(self, message):
+        # Главное меню
         self.button_menu(('Узнать курс валюты', 'Установить уровень валюты', 'Отслеживаемые валюты'))
         self.bot.send_message(message.chat.id, "Выберите нужную опцию:", reply_markup=self.menu)
         self.main_callback_handler()
 
     def main_callback_handler(self):
+        # Обработка в главном меню
         @self.bot.callback_query_handler(func=lambda call: True)
         def button_menu(call):
             if call.data == 'Узнать курс валюты':
@@ -186,8 +231,8 @@ class ExchangeBot:
                                                     "Заполните его, пожалуйста.",
                                                reply_markup=self.menu)
             elif call.data == 'Отслеживаемые валюты':
-                if self.currency_levels_dict.get(call.from_user.id) is None or not self.currency_levels_dict[
-                    call.from_user.id]:
+                if self.currency_levels_dict.get(call.from_user.id) is None or \
+                        not self.currency_levels_dict[call.from_user.id]:
                     self.bot.send_message(call.message.chat.id, 'У Вас пока нет отслеживаемых валют.')
                 else:
                     self.bot.send_message(call.message.chat.id,
@@ -217,8 +262,7 @@ class ExchangeBot:
         self.rates_class.currencies_ref_dict_key = self.currency_variety_dict[call.data][0]
         self.rates_class.get_rates()
         self.bot.send_message(call.message.chat.id,
-                              "На {}\n1 {} = {:.2f} ₽".format(
-                                  datetime.datetime.fromtimestamp(call.message.date).strftime('%d.%m.%Y %H:%M'),
+                              "1 {} = {:.2f} ₽".format(
                                   self.currency_variety_dict[call.data][1],
                                   self.rates_class.round_rate)
                               )
@@ -231,19 +275,21 @@ class ExchangeBot:
                                                                                   self.currency_levels_dict[
                                                                                       message.from_user.id][key]))
             self.temp_list.clear()
-            self.check_currency_level(message, message.from_user.id, key)
+            # self.check_currency_level(message, message.from_user.id, key)
         except ValueError:
             self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
             self.bot.register_next_step_handler_by_chat_id(message.chat.id, self.process_currency_level, key)
 
-    def check_currency_level(self, message, user_id_key, curr_key):
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(CurrencyLevel(curr_key, self.currency_levels_dict[user_id_key][curr_key]).execute)
-            if not future.result():
-                self.bot.send_message(message.chat.id, "{}, поздравляю! {} упал до выбранного "
-                                                       "Вами уровня. Можно менять :)".format(
-                    message.from_user.first_name, curr_key))
-                self.currency_levels_dict[user_id_key].pop(curr_key)
+    def check_currency_level(self):
+        pass
+
+        # with concurrent.futures.ThreadPoolExecutor() as executor:
+        #     future = executor.submit(CurrencyLevel(curr_key, self.currency_levels_dict[user_id_key][curr_key]).execute)
+        #     if not future.result():
+        #         self.bot.send_message(message.chat.id, "{}, поздравляю! {} упал до выбранного "
+        #                                                "Вами уровня. Можно менять :)".format(
+        #             message.from_user.first_name, curr_key))
+        #         self.currency_levels_dict[user_id_key].pop(curr_key)
 
     def execute(self):
         self.welcome_user()
@@ -254,8 +300,9 @@ class ExchangeBot:
 
 
 def main():
-    exchange_bot = ExchangeBot(RateProcessing())
-    exchange_bot.execute()
+    # exchange_bot = ExchangeBot(RateProcessing())
+    # exchange_bot.execute()
+    RateProcessing().run(60)
 
 
 if __name__ == '__main__':

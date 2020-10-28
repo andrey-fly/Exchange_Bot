@@ -46,9 +46,6 @@ class RateProcessing:
         self.conn = sqlite3.connect("currencies_db.db")
         self.cursor = self.conn.cursor()
 
-    def get_keys(self):
-        return self.currencies_ref_dict.keys()
-
     def parse_html(self, key=None):
         # Функция парсинга страницы
         full_page = requests.get(self.currencies_ref_dict[key], headers=self.headers)

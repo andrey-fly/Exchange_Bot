@@ -77,52 +77,6 @@ class ExchangeBot:
             else:
                 self.bot.send_message(message.chat.id, 'Я тебя не понимаю, повтори запрос.')
                 self.show_button_menu()
-            # elif message.text in list(self.currency_variety_dict.keys()):
-            #     self.menu = None
-            #     self.bot.edit_message_text(chat_id=call.message.chat.id,
-            #                                message_id=call.message.message_id,
-            #                                text=f"Выбрана валюта: {self.currency_variety_dict[call.data][0]}.\n"
-            #                                     f"Идет обработка запроса.\nПару секунд, пожалуйста.",
-            #                                reply_markup=self.menu)
-            #     self.process_rate_exchange(call)
-            # elif call.data in ['{} level'.format(self.currency_variety_dict[item][0])
-            #                    for item in self.currency_variety_dict.keys()]:
-            #     if len(self.temp_list) == 0:
-            #         self.temp_list.append(call.data)
-            #         self.menu = None
-            #         self.bot.edit_message_text(chat_id=call.message.chat.id,
-            #                                    message_id=call.message.message_id,
-            #                                    text=f"Выбрана валюта: {call.data[0:3]}.\n"
-            #                                         f"Установите ее уровень в ответном сообщении.",
-            #                                    reply_markup=self.menu)
-            #         self.bot.register_next_step_handler_by_chat_id(
-            #             call.message.chat.id,
-            #             self.process_currency_level,
-            #             call.data[0:3]
-            #         )
-            #     else:
-            #         self.menu = None
-            #         self.bot.edit_message_text(chat_id=call.message.chat.id,
-            #                                    message_id=call.message.message_id,
-            #                                    text="Имеется активный запрос уровня валюты. "
-            #                                         "Заполните его, пожалуйста.",
-            #                                    reply_markup=self.menu)
-            # elif call.data == 'Отслеживаемые валюты':
-            #     if self.currency_levels_dict.get(call.from_user.id) is None or \
-            #             not self.currency_levels_dict[call.from_user.id]:
-            #         self.bot.send_message(call.message.chat.id, 'У Вас пока нет отслеживаемых валют.')
-            #     else:
-            #         self.bot.send_message(call.message.chat.id,
-            #                               'Отсеживаются следующие валюты:\n{}'.format(
-            #                                   '\n'.join(self.currency_levels_dict[call.from_user.id].keys()))
-            #                               )
-
-        # @self.bot.message_handler(content_types=['text'])
-        # def main_menu(message):
-        #     self.bot.send_message(message.chat.id, "Я Вас не понял. Выберите, пожалуйста, одну из опций из списка "
-        #                                            "или воспользуйтесь клавиатурой с командами.")
-        #
-        #
 
     def rate_menu(self, message):
         self.button_menu(list(self.currency_variety_dict.keys()))
@@ -169,6 +123,7 @@ class ExchangeBot:
         except ValueError:
             self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
             self.bot.register_next_step_handler(message, self.process_currency_level)
+
     # with concurrent.futures.ThreadPoolExecutor() as executor:
     #     future = executor.submit(CurrencyLevel(curr_key, self.currency_levels_dict[user_id_key][curr_key]).execute)
     #     if not future.result():

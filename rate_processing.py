@@ -2,9 +2,12 @@ import os
 import re
 import sqlite3
 import time
-
+import logging
 import requests
+import threading
 from bs4 import BeautifulSoup
+
+logging.basicConfig(level=logging.INFO)
 
 
 class RateProcessing:
@@ -12,7 +15,8 @@ class RateProcessing:
     Инициализация класса
     """
 
-    def __init__(self):
+    def __init__(self, upd_time: int):
+
         self.currencies_ref_dict = {
             'EUR': 'https://www.google.com/search?ei=ijQkX56kHcGEwPAPtPSa2AQ&q=%D0%BA%D1%83%D1%80%D1%81+%D0%B5%D0%B2'
                    '%D1%80%D0%BE+%D0%BA+%D1%80%D1%83%D0%B1%D0%BB%D1%8E&oq=%D0%BA%D1%83%D1%80%D1%81+%D0%B5%D0%B2%D1%80'
@@ -43,8 +47,7 @@ class RateProcessing:
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/83.0.4103.106 Safari/537.36'
         }
-        self.conn = sqlite3.connect("currencies_db.db")
-        self.cursor = self.conn.cursor()
+        self.upd_time = upd_time
 
     def parse_html(self, key=None):
         # Функция парсинга страницы
@@ -61,31 +64,36 @@ class RateProcessing:
     def get_rate(self, key=None):
         return self.normalize_rates(key)
 
-    def run(self, upd_time):
-        start_time = time.time() - upd_time
+    def thread(self):
+        conn = sqlite3.connect("currencies_db.db")
+        cursor = conn.cursor()
+        start_time = time.time() - self.upd_time
         while True:
-            if (time.time() - start_time) < upd_time:
+            if (time.time() - start_time) < self.upd_time:
                 continue
             else:
                 start_time = time.time()
-                db_exists = int(self.cursor.execute("""SELECT COUNT(name) 
+                db_exists = int(cursor.execute("""SELECT COUNT(name) 
                                                      FROM sqlite_master
-                                                     WHERE type='table' 
-                                                     AND name='updated_currencies'""").fetchone()[0])
+                                                     WHERE type = 'table' 
+                                                     AND name = 'updated_currencies'""").fetchone()[0])
                 if db_exists:
                     for key in self.currencies_ref_dict:
-                        self.cursor.execute('UPDATE updated_currencies SET curr_value = ? WHERE curr_code = ?',
-                                            (self.get_rate(key), key))
-                        self.conn.commit()
+                        cursor.execute('UPDATE updated_currencies SET curr_value = ?, '
+                                       'time = ? WHERE curr_code = ?',
+                                       (self.get_rate(key), time.time(), key))
+                        conn.commit()
                 else:
-                    self.cursor.execute("""CREATE TABLE updated_currencies(
+                    cursor.execute("""CREATE TABLE updated_currencies(
                                                                         curr_code VAR_CHAR(3),
                                                                         curr_value DECIMAL(10, 2),
                                                                         time INT(30)
                                                                         );""")
                     for key in self.currencies_ref_dict.keys():
-                        self.cursor.execute('INSERT INTO updated_currencies VALUES (?, ?, ?)',
-                                            (key, self.get_rate(key), time.time()))
-                        self.conn.commit()
+                        cursor.execute('INSERT INTO updated_currencies VALUES (?, ?, ?)',
+                                       (key, self.get_rate(key), time.time()))
+                        conn.commit()
+                logging.info('Курсы валют обновлены')
 
-# RateProcessing().run(30)
+    def execute(self):
+        threading.Thread(target=self.thread).start()

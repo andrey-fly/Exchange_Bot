@@ -5,35 +5,43 @@ from rate_processing import RateProcessing as RPClass
 class CurrencyLevel:
 
     def __init__(self, rpclass: RPClass):
-        self.conn = sqlite3.connect("currencies_db.db")
-        self.cursor = self.conn.cursor()
-        self.rpclass = rpclass
         self.keys_list = rpclass.currencies_ref_dict.keys()
         self.users_to_send = {}
 
+    # @staticmethod
     def set_level(self, user_id, key, level):
-        self.cursor.execute('INSERT INTO currencies_levels VALUES (?, ?, ?)',
-                            (user_id, key, level))
-        self.conn.commit()
+        conn = sqlite3.connect("currencies_db.db")
+        cursor = conn.cursor()
+        db_exists = int(cursor.execute("""SELECT COUNT(name) 
+                                          FROM sqlite_master
+                                          WHERE type = 'table' 
+                                          AND name = 'currencies_levels'""").fetchone()[0])
+        if not db_exists:
+            cursor.execute("""CREATE TABLE currencies_levels(user_id INTEGER(20)
+                                                             curr_code VAR_CHAR(3),
+                                                             curr_value DECIMAL(10, 2);""")
+        cursor.execute('INSERT INTO currencies_levels VALUES (?, ?, ?)', (user_id, key, level))
+        conn.commit()
 
-    def output(self):
-        self.cursor.execute('SELECT * FROM currencies_levels')
-        print(self.cursor.fetchall())
+    # def output(self):
+    #     conn = sqlite3.connect("currencies_db.db")
+    #     cursor = conn.cursor()
+    #     cursor.execute('SELECT * FROM currencies_levels')
+    #     print(cursor.fetchall())
 
     def get_id_to_send(self, key):
-        self.cursor.execute('SELECT user_id, curr_value '
-                            'FROM currencies_levels '
-                            'WHERE curr_value <= (SELECT curr_value'
-                            '                     FROM updated_currencies'
-                            '                     WHERE curr_code = (?)) '
-                            'AND curr_code = (?)', (key, key))
-
-        # self.cursor.execute('SELECT curr_value FROM updated_currencies WHERE curr_code = (?)', (key,))
-        self.users_to_send[key] = [item for item in self.cursor.fetchall()]
+        conn = sqlite3.connect("currencies_db.db")
+        cursor = conn.cursor()
+        cursor.execute("""SELECT user_id, curr_value
+                          FROM currencies_levels 
+                          WHERE curr_value <= (SELECT curr_value 
+                                                FROM updated_currencies'
+                                                WHERE curr_code = ?)
+                                                AND curr_code = ?""", (key, key))
+        self.users_to_send[key] = [item for item in cursor.fetchall()]
         for item in [item[0] for item in self.users_to_send[key]]:
-            self.cursor.execute('DELETE FROM currencies_levels '
-                                'WHERE user_id = (?) AND curr_code = (?)', (item, key))
-        self.conn.commit()
+            cursor.execute('DELETE FROM currencies_levels WHERE user_id = (?) AND curr_code = (?)', (item, key))
+        conn.commit()
 
     def execute(self):
         for key in self.keys_list:

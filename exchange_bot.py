@@ -16,10 +16,10 @@ class ExchangeBot:
         self.markup = None
         self.bot = telebot.TeleBot(self.tg_token, num_threads=5)
         self.currency_variety_dict = {
-            "Евро (€)": ["EUR", "€"],
-            "Доллар ($)": ["USD", "$"],
-            "Швейцарский франк (₣)": ["CHF", "₣"],
-            "Биткойн (₿)": ["BTC", "₿"]
+            "Евро": ["EUR", "€"],
+            "Доллар": ["USD", "$"],
+            "Швейцарский франк": ["CHF", "₣"],
+            "Биткойн": ["BTC", "₿"]
         }
 
     def welcome_user(self):
@@ -145,10 +145,21 @@ class ExchangeBot:
                                   )
             self.show_main_menu(message)
         else:
-            self.bot.send_message(message.chat.id, 'Вы ввели валюту неверно. Поробуйте выбрать из списка.')
+            self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. Поробуйте выбрать из списка.')
             self.bot.register_next_step_handler(message, self.process_rate_exchange)
 
     def process_currency_level(self, message):
+        if message.text in list(self.currency_variety_dict.keys()):
+            self.bot.send_message(message.chat.id, 'Выбрана валюта: {}\n'
+                                                   'Установите ее уровень в ответном сообщении.'.format(message.text))
+            self.bot.register_next_step_handler(message,
+                                                self.set_currency_level,
+                                                self.currency_variety_dict[message.text][0])
+        else:
+            self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. Поробуйте выбрать из списка.')
+            self.bot.register_next_step_handler(message, self.process_currency_level)
+
+    def set_currency_level(self, message, key):
         try:
             self.clclass.set_level(message.from_user.id, key, float(message.text))
             self.bot.send_message(message.chat.id, "Установлен следующий уровень для {}: {}.\n"
@@ -158,7 +169,6 @@ class ExchangeBot:
         except ValueError:
             self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
             self.bot.register_next_step_handler(message, self.process_currency_level)
-
     # with concurrent.futures.ThreadPoolExecutor() as executor:
     #     future = executor.submit(CurrencyLevel(curr_key, self.currency_levels_dict[user_id_key][curr_key]).execute)
     #     if not future.result():

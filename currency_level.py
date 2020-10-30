@@ -8,8 +8,8 @@ class CurrencyLevel:
         self.keys_list = rpclass.currencies_ref_dict.keys()
         self.users_to_send = {}
 
-    # @staticmethod
-    def set_level(self, user_id, key, level):
+    @staticmethod
+    def set_level(user_id, key, level):
         conn = sqlite3.connect("currencies_db.db")
         cursor = conn.cursor()
         db_exists = int(cursor.execute("""SELECT COUNT(name) 
@@ -17,9 +17,9 @@ class CurrencyLevel:
                                           WHERE type = 'table' 
                                           AND name = 'currencies_levels'""").fetchone()[0])
         if not db_exists:
-            cursor.execute("""CREATE TABLE currencies_levels(user_id INTEGER(20)
+            cursor.execute("""CREATE TABLE currencies_levels(user_id INTEGER(20),
                                                              curr_code VAR_CHAR(3),
-                                                             curr_value DECIMAL(10, 2);""")
+                                                             curr_value DECIMAL(10, 2))""")
         cursor.execute('INSERT INTO currencies_levels VALUES (?, ?, ?)', (user_id, key, level))
         conn.commit()
 

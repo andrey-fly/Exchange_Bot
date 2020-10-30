@@ -44,7 +44,7 @@ class ExchangeBot:
                                                    "и проще.")
 
     def currencies(self):
-        # Выдает спиок поддерживаемых валют
+        # Выдает список поддерживаемых валют
         @self.bot.message_handler(commands=['currencies'])
         def send_currencies(message):
             string = 'Поддерживаются следующие валюты:'
@@ -115,6 +115,7 @@ class ExchangeBot:
 
     def set_currency_level(self, message, key):
         try:
+            print(message.from_user.id, key)
             self.clclass.set_level(message.from_user.id, key, float(message.text))
             self.bot.send_message(message.chat.id, "Установлен следующий уровень для {}: {}.\n"
                                                    "Ожидайте уведомления.".format(key, float(message.text)))

@@ -88,7 +88,7 @@ class RateProcessing:
                                                                         curr_code VAR_CHAR(3),
                                                                         curr_value DECIMAL(10, 2),
                                                                         time INT(30)
-                                                                        );""")
+                                                                        )""")
                     for key in self.currencies_ref_dict.keys():
                         cursor.execute('INSERT INTO updated_currencies VALUES (?, ?, ?)',
                                        (key, self.get_rate(key), time.time()))

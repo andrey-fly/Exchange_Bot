@@ -1,20 +1,20 @@
 import os
+import threading
 import time
 import telebot
 import sqlite3
 from datetime import datetime
 from rate_processing import RateProcessing as RPClass
-from currency_level import CurrencyLevel as CLClass
 
 
 class ExchangeBot:
 
-    def __init__(self, clclass: CLClass):
-        self.clclass = clclass
+    def __init__(self, rplass: RPClass):
+        self.rpclass = rplass
         self.tg_token = os.getenv('TG_TOKEN')
         self.menu = None
         self.markup = None
-        self.bot = telebot.TeleBot(self.tg_token, num_threads=5)
+        self.bot = telebot.TeleBot(self.tg_token)
         self.currency_variety_dict = {
             "Евро": ["EUR", "€"],
             "Доллар": ["USD", "$"],
@@ -29,8 +29,7 @@ class ExchangeBot:
             self.bot.send_message(message.chat.id,
                                   "Добро пожаловать, {}!\nЯ - ExchangeBot. Подскажу Вам актуальный курс валют "
                                   "на данный момент. \nСписок доступных валют доступен по команде /currencies.\n"
-                                  "Нужна помощь? Воспользуйтесь командой /help.\nДля вызова главного меню из любого "
-                                  "места программы воспользуйтесь командой /menu.".format(message.from_user.first_name),
+                                  "Нужна помощь? Воспользуйтесь командой /help.".format(message.from_user.first_name),
                                   reply_markup=self.markup)
             time.sleep(1)
             self.show_main_menu(message)
@@ -62,9 +61,9 @@ class ExchangeBot:
         # Главное меню
         self.button_menu(('Узнать курс валюты', 'Установить уровень валюты', 'Отслеживаемые валюты'))
         self.bot.send_message(message.chat.id, "Выберите нужную опцию:", reply_markup=self.menu)
-        self.show_button_menu()
+        self.process_main_menu()
 
-    def show_button_menu(self):
+    def process_main_menu(self):
         # Обработка в главном меню
         @self.bot.message_handler(content_types=['text'])
         def button_menu(message):
@@ -74,15 +73,25 @@ class ExchangeBot:
             elif message.text == 'Установить уровень валюты':
                 self.rate_menu(message)
                 self.bot.register_next_step_handler(message, self.process_currency_level)
+            elif message.text == 'Отслеживаемые валюты':
+                flw_cur = self.rpclass.get_flw_cur(message.from_user.id)
+                fin_str = 'Список отслеживаемых тобой валют и их уровней:'
+                for item in flw_cur:
+                    fin_str = fin_str + '\n{} - {} ₽'.format(item[3], item[4])
+                self.bot.send_message(message.chat.id, fin_str)
+
+                # self.bot.register_next_step_handler(message, self.process_currency_level)
             else:
                 self.bot.send_message(message.chat.id, 'Я тебя не понимаю, повтори запрос.')
-                self.show_button_menu()
+                self.process_main_menu()
 
     def rate_menu(self, message):
+        # Меню выбора валюты
         self.button_menu(list(self.currency_variety_dict.keys()))
         self.bot.send_message(message.chat.id, "Выберите нужную валюту:", reply_markup=self.menu)
 
     def process_rate_exchange(self, message):
+        # Получение курса валют из БД
         if message.text in list(self.currency_variety_dict.keys()):
             conn = sqlite3.connect("currencies_db.db")
             cursor = conn.cursor()
@@ -94,7 +103,7 @@ class ExchangeBot:
                                   "{} (UTC+0)".format(
                                       self.currency_variety_dict[message.text][1],
                                       curr_value[0],
-                                      datetime.utcfromtimestamp(curr_value[1]).strftime('%d.%m.%Y %H:%M:%S')
+                                      datetime.utcfromtimestamp(curr_value[1]).strftime('%d.%m.%Y %H:%M')
                                   )
                                   )
             self.show_main_menu(message)
@@ -103,6 +112,7 @@ class ExchangeBot:
             self.bot.register_next_step_handler(message, self.process_rate_exchange)
 
     def process_currency_level(self, message):
+        # Процесс установки уровня валюты
         if message.text in list(self.currency_variety_dict.keys()):
             self.bot.send_message(message.chat.id, 'Выбрана валюта: {}\n'
                                                    'Установите ее уровень в ответном сообщении.'.format(message.text))
@@ -114,33 +124,41 @@ class ExchangeBot:
             self.bot.register_next_step_handler(message, self.process_currency_level)
 
     def set_currency_level(self, message, key):
+        # Непосредстенно сама установка уровня валюты в БД
         try:
-            print(message.from_user.id, key)
-            self.clclass.set_level(message.from_user.id, key, float(message.text))
+            flt_value = float(message.text.replace(',', '.'))
+            self.rpclass.set_level(message.from_user.id,
+                                   message.from_user.first_name,
+                                   message.chat.id,
+                                   key,
+                                   flt_value)
             self.bot.send_message(message.chat.id, "Установлен следующий уровень для {}: {}.\n"
-                                                   "Ожидайте уведомления.".format(key, float(message.text)))
-
-            # self.check_currency_level(message, message.from_user.id, key)
+                                                   "Ожидайте уведомления.".format(key, flt_value))
+            self.show_main_menu(message)
         except ValueError:
             self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
-            self.bot.register_next_step_handler(message, self.process_currency_level)
+            self.bot.register_next_step_handler(message, self.set_currency_level, key)
 
-    # with concurrent.futures.ThreadPoolExecutor() as executor:
-    #     future = executor.submit(CurrencyLevel(curr_key, self.currency_levels_dict[user_id_key][curr_key]).execute)
-    #     if not future.result():
-    #         self.bot.send_message(message.chat.id, "{}, поздравляю! {} упал до выбранного "
-    #                                                "Вами уровня. Можно менять :)".format(
-    #             message.from_user.first_name, curr_key))
-    #         self.currency_levels_dict[user_id_key].pop(curr_key)
+    def curr_thread(self):
+        while True:
+            if self.rpclass.users_to_send and self.rpclass.flag_upd_uts:
+                for key in self.rpclass.users_to_send.keys():
+                    for item in self.rpclass.users_to_send[key]:
+                        self.bot.send_message(item[2], '{}, поздравляю! Уровень валюты {} опустился до {}. '
+                                                       'Можно менять :)'.format(item[1],
+                                                                                item[3],
+                                                                                item[4]))
+                self.rpclass.users_to_send = {}
+                self.rpclass.flag_upd_uts = False
 
     def execute(self):
         self.welcome_user()
         self.help_user()
         self.currencies()
+        threading.Thread(target=self.curr_thread).start()
         self.bot.infinity_polling(True)
 
 
 rpclass = RPClass(30)
 rpclass.execute()
-clclass = CLClass(rpclass)
-ExchangeBot(clclass).execute()
+ExchangeBot(rpclass).execute()

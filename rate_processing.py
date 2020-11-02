@@ -7,7 +7,7 @@ import requests
 import threading
 from bs4 import BeautifulSoup
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.WARNING)
 
 
 class RateProcessing:
@@ -42,12 +42,13 @@ class RateProcessing:
                    'AToFCAAQsQM6AgguOgUILhCxAzoJCAAQsQMQChABOgoIABCxAxCDARBDOgQIABBDOgcIABCxAxBDOgwIABCxAxBDEEYQggI6'
                    'CQgAEEMQRhCCAlCXLFiEggFguY8BaANwAHgAgAF9iAGgCJIBBDExLjKYAQCgAQGqAQdnd3Mtd2l6sAEAwAEB&sclient=psy-ab'
         }
-        self.currency_rates_list = []
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) '
                           'Chrome/83.0.4103.106 Safari/537.36'
         }
         self.upd_time = upd_time
+        self.users_to_send = {}
+        self.flag_upd_uts = False
 
     def parse_html(self, key=None):
         # Функция парсинга страницы
@@ -56,13 +57,48 @@ class RateProcessing:
         convert = soup.find_all('span', {'class': 'DFlfde SwHCTb', 'data-precision': 2})
         return str(convert[0])
 
-    def normalize_rates(self, key=None):
+    def get_rate(self, key=None):
         # Функция, приводящая значения валют к общему виду
         found_rate = re.findall(r'\d{,9}[.]\d{,5}', self.parse_html(key))
         return round(float(found_rate[0]), 2)
 
-    def get_rate(self, key=None):
-        return self.normalize_rates(key)
+    @staticmethod
+    def set_level(user_id, name, chat_id, key, level):
+        conn = sqlite3.connect("currencies_db.db")
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO currencies_levels VALUES (?, ?, ?, ?, ?)', (user_id, name, chat_id, key, level))
+        conn.commit()
+
+    def get_id_to_send(self, key):
+        conn = sqlite3.connect("currencies_db.db")
+        cursor = conn.cursor()
+        db_exists = int(cursor.execute("""SELECT COUNT(name) 
+                                          FROM sqlite_master
+                                          WHERE type = 'table' 
+                                          AND name = 'currencies_levels'""").fetchone()[0])
+        if not db_exists:
+            cursor.execute("""CREATE TABLE currencies_levels(user_id INTEGER(20),
+                                                             name VAR_CHAR(20),
+                                                             chat_id INTEGER(20),
+                                                             curr_code VAR_CHAR(3),
+                                                             curr_value DECIMAL(10, 2))""")
+        cursor.execute("""SELECT user_id, name, chat_id, curr_code,curr_value 
+                          FROM currencies_levels 
+                          WHERE curr_value >= (SELECT curr_value 
+                                                FROM updated_currencies
+                                                WHERE curr_code = ?)
+                                                AND curr_code = ?""", (key, key))
+        self.users_to_send[key] = list(set([item for item in cursor.fetchall()]))
+        for item in self.users_to_send[key]:
+            cursor.execute("""DELETE FROM currencies_levels 
+                              WHERE user_id = ? AND curr_code = ? AND curr_value = ?""", (item[0], key, item[4]))
+        conn.commit()
+
+    def get_flw_cur(self, id):
+        conn = sqlite3.connect("currencies_db.db")
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM currencies_levels WHERE user_id = ?', (id,))
+        return cursor.fetchall()
 
     def thread(self):
         conn = sqlite3.connect("currencies_db.db")
@@ -84,8 +120,7 @@ class RateProcessing:
                                        (self.get_rate(key), time.time(), key))
                         conn.commit()
                 else:
-                    cursor.execute("""CREATE TABLE updated_currencies(
-                                                                        curr_code VAR_CHAR(3),
+                    cursor.execute("""CREATE TABLE updated_currencies(curr_code VAR_CHAR(3),
                                                                         curr_value DECIMAL(10, 2),
                                                                         time INT(30)
                                                                         )""")
@@ -93,7 +128,10 @@ class RateProcessing:
                         cursor.execute('INSERT INTO updated_currencies VALUES (?, ?, ?)',
                                        (key, self.get_rate(key), time.time()))
                         conn.commit()
-                logging.info('Курсы валют обновлены')
+                for key in self.currencies_ref_dict.keys():
+                    self.get_id_to_send(key)
+                self.flag_upd_uts = True
+                # logging.warning('Курсы валют обновлены')
 
     def execute(self):
         threading.Thread(target=self.thread).start()

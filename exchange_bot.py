@@ -41,7 +41,6 @@ class ExchangeBot:
                                   "на данный момент. \nСписок доступных валют доступен по команде /currencies.\n"
                                   "Нужна помощь? Воспользуйтесь командой /help.".format(message.from_user.first_name),
                                   reply_markup=self.markup)
-            time.sleep(1)
             self.show_main_menu(message)
 
     def help_user(self):
@@ -86,9 +85,12 @@ class ExchangeBot:
             elif message.text == 'Отслеживаемые валюты':
                 flw_cur = self.rpclass.get_flw_cur(message.from_user.id)
                 fin_str = 'Список отслеживаемых тобой валют и их уровней:'
-                for item in flw_cur:
-                    fin_str = fin_str + '\n{} - {} ₽'.format(item[3], item[4])
-                self.bot.send_message(message.chat.id, fin_str)
+                if flw_cur:
+                    for item in flw_cur:
+                        fin_str = fin_str + '\n{} - {} ₽'.format(item[3], item[4])
+                    self.bot.send_message(message.chat.id, fin_str)
+                else:
+                    self.bot.send_message(message.chat.id, 'У тебя нет отслеживаемых валют.')
 
                 # self.bot.register_next_step_handler(message, self.process_currency_level)
             else:
@@ -169,7 +171,7 @@ class ExchangeBot:
         self.help_user()
         self.currencies()
         threading.Thread(target=self.curr_thread).start()
-
+        # self.bot.polling()
 
 
 

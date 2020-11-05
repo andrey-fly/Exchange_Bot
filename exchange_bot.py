@@ -4,14 +4,17 @@ import time
 import telebot
 import sqlite3
 from datetime import datetime
+from flask import Flask, request
 from rate_processing import RateProcessing as RPClass
 
 
 class ExchangeBot:
 
     def __init__(self, rplass: RPClass):
+        self.app = Flask(__name__)
         self.rpclass = rplass
         self.tg_token = os.getenv('TG_TOKEN')
+        self.flsk_url = os.getenv('SECRET_URL')
         self.menu = None
         self.markup = None
         self.bot = telebot.TeleBot(self.tg_token)
@@ -21,6 +24,13 @@ class ExchangeBot:
             "Швейцарский франк": ["CHF", "₣"],
             "Биткойн": ["BTC", "₿"]
         }
+
+    def webhook(self):
+        @self.app.route('/'.format(self.flsk_url), methods=["POST"])
+        def webhook():
+            print(request.json)
+            self.bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode("utf-8"))])
+            return "!", 200
 
     def welcome_user(self):
         # Приветственное сообщение в чате
@@ -152,13 +162,14 @@ class ExchangeBot:
                 self.rpclass.flag_upd_uts = False
 
     def execute(self):
+        self.app.run()
+        self.bot.remove_webhook()
+        self.bot.set_webhook(url='https://andrey19972004.pythonanywhere.com/{}'.format(self.flsk_url))
         self.welcome_user()
         self.help_user()
         self.currencies()
         threading.Thread(target=self.curr_thread).start()
-        self.bot.infinity_polling(True)
 
 
-rpclass = RPClass(30)
-rpclass.execute()
-ExchangeBot(rpclass).execute()
+
+

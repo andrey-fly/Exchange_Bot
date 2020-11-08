@@ -68,6 +68,7 @@ class RateProcessing:
         cursor = conn.cursor()
         cursor.execute('INSERT INTO currencies_levels VALUES (?, ?, ?, ?, ?)', (user_id, name, chat_id, key, level))
         conn.commit()
+        conn.close()
 
     def get_id_to_send(self, key):
         conn = sqlite3.connect("currencies_db.db")
@@ -93,12 +94,15 @@ class RateProcessing:
             cursor.execute("""DELETE FROM currencies_levels 
                               WHERE user_id = ? AND curr_code = ? AND curr_value = ?""", (item[0], key, item[4]))
         conn.commit()
+        conn.close()
 
     def get_flw_cur(self, id):
         conn = sqlite3.connect("currencies_db.db")
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM currencies_levels WHERE user_id = ?', (id,))
-        return cursor.fetchall()
+        flw_cur = cursor.fetchall()
+        conn.close()
+        return flw_cur
 
     def thread(self):
         conn = sqlite3.connect("currencies_db.db")
@@ -132,6 +136,7 @@ class RateProcessing:
                     self.get_id_to_send(key)
                 self.flag_upd_uts = True
                 # logging.warning('Курсы валют обновлены')
+        conn.close()
 
     def execute(self):
         threading.Thread(target=self.thread).start()

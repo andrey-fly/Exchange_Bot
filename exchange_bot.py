@@ -10,7 +10,7 @@ class ExchangeBot:
 
     def __init__(self, rplass: RPClass):
         self.rpclass = rplass
-        self.tg_token = '1152544884:AAH-x7Gzd4RcX7sgOPLHKm1wV7OFxJ1YgPY'
+        self.tg_token = os.environ.get('TG_TOKEN')
         self.menu = None
         self.markup = None
         self.bot = telebot.TeleBot(self.tg_token)

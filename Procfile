@@ -1,2 +1,2 @@
-heroku buildpacks:set heroku/php
+heroku buildpacks:set heroku/python
 web: python3 main.py

@@ -1,2 +1,1 @@
-heroku buildpacks:set heroku/python
-web: python3 main.py
+main: python3 main.py

@@ -11,6 +11,7 @@ class ExchangeBot:
     def __init__(self, rplass: RPClass):
         self.rpclass = rplass
         self.tg_token = os.environ.get('TG_TOKEN')
+        self.sec_url = os.environ.get('SEC_URL')
         self.menu = None
         self.markup = None
         self.bot = telebot.TeleBot(self.tg_token)
@@ -154,9 +155,8 @@ class ExchangeBot:
 
     def execute(self):
         self.bot.remove_webhook()
-        self.bot.set_webhook(url='https://protected-oasis-53938.herokuapp.com/' + self.tg_token)
+        self.bot.set_webhook(url='https://protected-oasis-53938.herokuapp.com/' + self.sec_url)
         self.welcome_user()
         self.help_user()
         self.currencies()
         threading.Thread(target=self.curr_thread).start()
-        # self.bot.polling()

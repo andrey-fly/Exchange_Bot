@@ -153,8 +153,10 @@ class ExchangeBot:
                 self.rpclass.flag_upd_uts = False
 
     def execute(self):
+        self.bot.remove_webhook()
+        self.bot.set_webhook(url='https://protected-oasis-53938.herokuapp.com/' + self.tg_token)
         self.welcome_user()
         self.help_user()
         self.currencies()
         threading.Thread(target=self.curr_thread).start()
-        self.bot.polling()
+        # self.bot.polling()

@@ -18,7 +18,7 @@ def getMessage():
 @server.route('/')
 def webhook():
     ebclass.bot.remove_webhook()
-    ebclass.bot.set_webhook(url='https://peaceful-tor-36860.herokuapp.com/' + ebclass.tg_token)
+    ebclass.bot.set_webhook(url='https://protected-oasis-53938.herokuapp.com/' + ebclass.tg_token)
     return '!', 200
 
 

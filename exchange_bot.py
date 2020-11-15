@@ -157,5 +157,4 @@ class ExchangeBot:
         self.help_user()
         self.currencies()
         threading.Thread(target=self.curr_thread).start()
-        self.bot.remove_webhook()
         self.bot.polling()

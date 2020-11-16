@@ -31,7 +31,6 @@ class ExchangeBot:
                                   "на данный момент. \nСписок доступных валют доступен по команде /currencies.\n"
                                   "Нужна помощь? Воспользуйтесь командой /help.".format(message.from_user.first_name),
                                   reply_markup=self.markup)
-            self.show_main_menu(message)
 
     def help_user(self):
         # Помогает пользователю подсказкой
@@ -60,7 +59,6 @@ class ExchangeBot:
         # Главное меню
         self.button_menu(('Узнать курс валюты', 'Установить уровень валюты', 'Отслеживаемые валюты'))
         self.bot.send_message(message.chat.id, "Выберите нужную опцию:", reply_markup=self.menu)
-        self.process_main_menu()
 
     def process_main_menu(self):
         # Обработка в главном меню
@@ -109,6 +107,7 @@ class ExchangeBot:
                                   )
                                   )
             self.show_main_menu(message)
+            self.process_main_menu()
         else:
             self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. Поробуйте выбрать из списка.')
             self.bot.register_next_step_handler(message, self.process_rate_exchange)
@@ -137,6 +136,7 @@ class ExchangeBot:
             self.bot.send_message(message.chat.id, "Установлен следующий уровень для {}: {}.\n"
                                                    "Ожидайте уведомления.".format(key, flt_value))
             self.show_main_menu(message)
+            self.process_main_menu()
         except ValueError:
             self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
             self.bot.register_next_step_handler(message, self.set_currency_level, key)
@@ -159,4 +159,5 @@ class ExchangeBot:
         self.welcome_user()
         self.help_user()
         self.currencies()
+        self.process_main_menu()
         threading.Thread(target=self.curr_thread).start()

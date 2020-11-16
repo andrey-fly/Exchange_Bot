@@ -31,6 +31,7 @@ class ExchangeBot:
                                   "на данный момент. \nСписок доступных валют доступен по команде /currencies.\n"
                                   "Нужна помощь? Воспользуйтесь командой /help.".format(message.from_user.first_name),
                                   reply_markup=self.markup)
+            self.show_main_menu(message)
 
     def help_user(self):
         # Помогает пользователю подсказкой

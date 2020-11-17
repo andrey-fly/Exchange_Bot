@@ -122,55 +122,63 @@ class ExchangeBot:
 
     def process_rate_exchange(self, message):
         # Получение курса валют из БД
-        if message.text != 'Назад':
-            if message.text in list(self.currency_variety_dict.keys()):
-                conn = sqlite3.connect("currencies_db.db")
-                cursor = conn.cursor()
-                key = self.currency_variety_dict[message.text][0]
-                curr_value = cursor.execute('SELECT curr_value, time FROM updated_currencies '
-                                            'WHERE curr_code = ?', (key,)).fetchone()
-                self.bot.send_message(message.chat.id,
-                                      "1 {} = {:.2f} ₽\n"
-                                      "{} (UTC+0)".format(
-                                          self.currency_variety_dict[message.text][1],
-                                          curr_value[0],
-                                          datetime.utcfromtimestamp(curr_value[1]).strftime('%d.%m.%Y %H:%M')
-                                      )
-                                      )
-                self.show_main_menu(message)
-            else:
-                self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. Поробуйте выбрать из списка.')
-                self.bot.register_next_step_handler(message, self.process_rate_exchange)
+        if message.text in list(self.currency_variety_dict.keys()):
+            conn = sqlite3.connect("currencies_db.db")
+            cursor = conn.cursor()
+            key = self.currency_variety_dict[message.text][0]
+            curr_value = cursor.execute('SELECT curr_value, time FROM updated_currencies '
+                                        'WHERE curr_code = ?', (key,)).fetchone()
+            self.bot.send_message(message.chat.id,
+                                  "1 {} = {:.2f} ₽\n"
+                                  "{} (UTC+0)".format(
+                                      self.currency_variety_dict[message.text][1],
+                                      curr_value[0],
+                                      datetime.utcfromtimestamp(curr_value[1]).strftime('%d.%m.%Y %H:%M')
+                                  )
+                                  )
+            self.show_main_menu(message)
+        elif message.text == 'Назад':
+            self.show_main_menu(message)
+            self.process_main_menu()
         else:
-            self.bot.register_next_step_handler(message, self.process_main_menu)
+            self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. Поробуйте выбрать из списка.')
+            self.bot.register_next_step_handler(message, self.process_rate_exchange)
 
     def process_currency_level(self, message):
         # Процесс установки уровня валюты
         if message.text in list(self.currency_variety_dict.keys()):
             self.bot.send_message(message.chat.id, 'Выбрана валюта: {}\n'
                                                    'Установите ее уровень в ответном сообщении.'.format(message.text))
+            self.button_menu(('Назад',))
             self.bot.register_next_step_handler(message,
                                                 self.set_currency_level,
                                                 self.currency_variety_dict[message.text][0])
+        elif message.text == 'Назад':
+            self.show_main_menu(message)
+            self.process_main_menu()
         else:
             self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. Поробуйте выбрать из списка.')
             self.bot.register_next_step_handler(message, self.process_currency_level)
 
     def set_currency_level(self, message, key):
         # Непосредстенно сама установка уровня валюты в БД
-        try:
-            flt_value = float(message.text.replace(',', '.'))
-            self.rpclass.set_level(message.from_user.id,
-                                   message.from_user.first_name,
-                                   message.chat.id,
-                                   key,
-                                   flt_value)
-            self.bot.send_message(message.chat.id, "Установлен следующий уровень для {}: {}.\n"
-                                                   "Ожидайте уведомления.".format(key, flt_value))
-            self.show_main_menu(message)
-        except ValueError:
-            self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
-            self.bot.register_next_step_handler(message, self.set_currency_level, key)
+        if message.text == 'Назад':
+            self.rate_menu(message)
+            self.bot.register_next_step_handler(message, self.process_currency_level)
+        else:
+            try:
+                flt_value = float(message.text.replace(',', '.'))
+                self.rpclass.set_level(message.from_user.id,
+                                       message.from_user.first_name,
+                                       message.chat.id,
+                                       key,
+                                       flt_value)
+                self.bot.send_message(message.chat.id, "Установлен следующий уровень для {}: {}.\n"
+                                                       "Ожидайте уведомления.".format(key, flt_value))
+                self.show_main_menu(message)
+            except ValueError:
+                self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
+                self.bot.register_next_step_handler(message, self.set_currency_level, key)
 
     def curr_thread(self):
         while True:

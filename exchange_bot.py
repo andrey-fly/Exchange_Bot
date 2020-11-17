@@ -80,8 +80,6 @@ class ExchangeBot:
                     self.bot.send_message(message.chat.id, fin_str)
                 else:
                     self.bot.send_message(message.chat.id, 'У тебя нет отслеживаемых валют.')
-
-                # self.bot.register_next_step_handler(message, self.process_currency_level)
             else:
                 self.bot.send_message(message.chat.id, 'Я тебя не понимаю, повтори запрос.')
                 self.process_main_menu()
@@ -108,7 +106,6 @@ class ExchangeBot:
                                   )
                                   )
             self.show_main_menu(message)
-            self.process_main_menu()
         else:
             self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. Поробуйте выбрать из списка.')
             self.bot.register_next_step_handler(message, self.process_rate_exchange)
@@ -137,7 +134,6 @@ class ExchangeBot:
             self.bot.send_message(message.chat.id, "Установлен следующий уровень для {}: {}.\n"
                                                    "Ожидайте уведомления.".format(key, flt_value))
             self.show_main_menu(message)
-            self.process_main_menu()
         except ValueError:
             self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
             self.bot.register_next_step_handler(message, self.set_currency_level, key)

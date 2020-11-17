@@ -1,13 +1,9 @@
-import os
 import re
 import sqlite3
 import time
-import logging
 import requests
 import threading
 from bs4 import BeautifulSoup
-
-logging.basicConfig(level=logging.WARNING)
 
 
 class RateProcessing:
@@ -94,10 +90,11 @@ class RateProcessing:
                               WHERE user_id = ? AND curr_code = ? AND curr_value = ?""", (item[0], key, item[4]))
         conn.commit()
 
-    def get_flw_cur(self, id):
+    @staticmethod
+    def get_flw_cur(user_id):
         conn = sqlite3.connect("currencies_db.db")
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM currencies_levels WHERE user_id = ?', (id,))
+        cursor.execute('SELECT * FROM currencies_levels WHERE user_id = ?', (user_id,))
         return cursor.fetchall()
 
     def thread(self):
@@ -131,7 +128,6 @@ class RateProcessing:
                 for key in self.currencies_ref_dict.keys():
                     self.get_id_to_send(key)
                 self.flag_upd_uts = True
-                # logging.warning('Курсы валют обновлены')
 
     def execute(self):
         threading.Thread(target=self.thread).start()

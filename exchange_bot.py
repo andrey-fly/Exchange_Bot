@@ -147,9 +147,11 @@ class ExchangeBot:
     def process_currency_level(self, message):
         # Процесс установки уровня валюты
         if message.text in list(self.currency_variety_dict.keys()):
-            self.bot.send_message(message.chat.id, 'Выбрана валюта: {}\n'
-                                                   'Установите ее уровень в ответном сообщении.'.format(message.text))
             self.button_menu(('Назад',))
+            self.bot.send_message(message.chat.id,
+                                  'Выбрана валюта: {}\n'
+                                  'Установите ее уровень в ответном сообщении.'.format(message.text),
+                                  reply_markup=self.menu)
             self.bot.register_next_step_handler(message,
                                                 self.set_currency_level,
                                                 self.currency_variety_dict[message.text][0])

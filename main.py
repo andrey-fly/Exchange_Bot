@@ -1,3 +1,6 @@
+"""
+Main loop for activating Flask app and Bot instance
+"""
 import os
 import threading
 
@@ -14,16 +17,29 @@ server = Flask(__name__)
 
 @server.route('/' + ebclass.sec_url, methods=['POST'])
 def get_message():
-    ebclass.bot.process_new_updates([telebot.types.Update.de_json(request.stream.read().decode('utf-8'))])
+    """
+    Webhook page
+    :return: tuple
+    """
+    ebclass.bot.process_new_updates(
+        [telebot.types.Update.de_json(request.stream.read().decode('utf-8'))])
     return '!', 200
 
 
 @server.route('/')
 def webhook():
+    """
+    Main page of app server
+    :return: tuple
+    """
     return '!', 200
 
 
 def main():
+    """
+    Main function
+    :return: None
+    """
     rpclass.execute()
     ebclass.execute()
 

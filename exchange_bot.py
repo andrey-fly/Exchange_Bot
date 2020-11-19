@@ -1,20 +1,23 @@
+"""
+Bot instance
+"""
 import os
 import threading
-import telebot
 import sqlite3
 from datetime import datetime
+import telebot
 from rate_processing import RateProcessing as RPClass
 
 
 class ExchangeBot:
     """
-    Класс, который описывает логику бота
+    Bot class that describe its logic
     """
 
     def __init__(self, rplass: RPClass):
         """
-        Инициализация бота
-        :param rplass: RateProcessing Class Object
+        Bot class initial
+        :param rplass: RPClass
         """
         self.rpclass = rplass
         self.tg_token = os.environ.get('TG_TOKEN')
@@ -31,47 +34,68 @@ class ExchangeBot:
 
     def welcome_user(self):
         """
-        Приветственное сообщение в чате
+        User's welcoming
         :return: None
         """
 
         @self.bot.message_handler(commands=['start'])
         def send_welcome(message):
             self.bot.send_message(message.chat.id,
-                                  "Добро пожаловать, {}!\nЯ - ExchangeBot. Подскажу тебе актуальный курс валют "
-                                  "на данный момент. \nСписок доступных валют доступен по команде /currencies.\n"
-                                  "Нужна помощь? Воспользуйтесь командой /help.".format(message.from_user.first_name),
+                                  "Добро пожаловать, {}!\nЯ - ExchangeBot. "
+                                  "Подскажу тебе актуальный курс валют "
+                                  "на данный момент. \nСписок доступных "
+                                  "валют доступен по команде /currencies.\n"
+                                  "Нужна помощь? Воспользуйтесь командой "
+                                  "/help.".format(message.from_user.first_name),
                                   reply_markup=self.markup)
             self.show_main_menu(message)
 
     def help_user(self):
         """
-        Команда помощи пользователю
+        Command that help user
         :return: None
         """
 
         @self.bot.message_handler(commands=['help'])
         def send_help(message):
-            self.bot.send_message(message.chat.id, "Чтобы не вводить каждый раз команды через слеш (/),"
-                                                   " воспользуйтесь клавиатурой с командами. Это гораздо быстрее "
-                                                   "и проще.")
+            self.bot.send_message(message.chat.id, 'Для получения актуального курса валюты '
+                                                   'нажми "Узнать уровень валюты" и выбери '
+                                                   'необходимую валюту из списка. Актуальный '
+                                                   'курс валюты и время его обновления '
+                                                   'будет направлен в ответном сообщении.\n'
+                                                   'Для установки уведомления о достижении '
+                                                   'необходимого уровня валюты нажми '
+                                                   '"Установить уровень валюты" и выбери '
+                                                   'необходимую валюту из спика. В '
+                                                   'ответном сообщении введи уровень '
+                                                   'валюты (можно как через запятую, '
+                                                   'так и через точку). В ответ ты '
+                                                   'получишь сообщение об установке '
+                                                   'необходимого уровня валюты.\nДля '
+                                                   'того чтобы узнать отслеживаемые '
+                                                   'тобой валюты нажми "Отслеживаемые '
+                                                   'валюты". В ответном сообщении ты '
+                                                   'плучишь список отслеживаемых валют '
+                                                   'и их уровни.\nДля введения команд '
+                                                   'введи слэш (/) и выбери из списка '
+                                                   'предложенные команды.')
 
     def currencies(self):
         """
-        Команда выдачи списка поддерживаемых валют
+        Command that tell you list of supporting currencies
         :return:None
         """
 
         @self.bot.message_handler(commands=['currencies'])
         def send_currencies(message):
             string = 'Поддерживаются следующие валюты:'
-            for item in self.currency_variety_dict.keys():
+            for item in self.currency_variety_dict:
                 string += f'\n{item}'
             self.bot.send_message(message.chat.id, string)
 
     def button_menu(self, params: tuple):
         """
-        Шаблон всех меню
+        All menus template
         :param params: tuple
         :return: None
         """
@@ -81,16 +105,18 @@ class ExchangeBot:
 
     def show_main_menu(self, message: telebot.types.Message):
         """
-        Показ главного меню
+        Showing main menu
         :param message: telebot.types.Message
         :return: None
         """
-        self.button_menu(('Узнать курс валюты', 'Установить уровень валюты', 'Отслеживаемые валюты'))
+        self.button_menu(('Узнать курс валюты',
+                          'Установить уровень валюты',
+                          'Отслеживаемые валюты'))
         self.bot.send_message(message.chat.id, "Выберите нужную опцию:", reply_markup=self.menu)
 
     def process_main_menu(self):
         """
-        Обработка главного меню
+        Main menu handler
         :return: None
         """
 
@@ -115,42 +141,57 @@ class ExchangeBot:
                 self.bot.send_message(message.chat.id, 'Я тебя не понимаю, повтори запрос.')
                 self.process_main_menu()
 
-    def rate_menu(self, message):
-        # Меню выбора валюты
+    def rate_menu(self, message: telebot.types.Message):
+        """
+        Showing currencies menu
+        :param message: telebot.types.Message
+        :return: None
+        """
         self.button_menu(tuple(self.currency_variety_dict.keys()) + ('Назад',))
         self.bot.send_message(message.chat.id, "Выберите нужную валюту:", reply_markup=self.menu)
 
-    def process_rate_exchange(self, message):
-        # Получение курса валют из БД
+    def process_rate_exchange(self, message: telebot.types.Message):
+        """
+        Rate exchange handler
+        :param message: telebot.types.Message
+        :return: None
+        """
         if message.text in list(self.currency_variety_dict.keys()):
             conn = sqlite3.connect("currencies_db.db")
             cursor = conn.cursor()
             key = self.currency_variety_dict[message.text][0]
             curr_value = cursor.execute('SELECT curr_value, time FROM updated_currencies '
                                         'WHERE curr_code = ?', (key,)).fetchone()
-            self.bot.send_message(message.chat.id,
-                                  "1 {} = {:.2f} ₽\n"
-                                  "{} (UTC+0)".format(
-                                      self.currency_variety_dict[message.text][1],
-                                      curr_value[0],
-                                      datetime.utcfromtimestamp(curr_value[1]).strftime('%d.%m.%Y %H:%M')
-                                  )
-                                  )
+            self.bot.send_message(
+                message.chat.id,
+                "1 {} = {:.2f} ₽\n"
+                "{} (UTC+0)".format(
+                    self.currency_variety_dict[message.text][1],
+                    curr_value[0],
+                    datetime.utcfromtimestamp(curr_value[1]).strftime('%d.%m.%Y %H:%M')
+                )
+            )
             self.show_main_menu(message)
         elif message.text == 'Назад':
             self.show_main_menu(message)
             self.process_main_menu()
         else:
-            self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. Поробуйте выбрать из списка.')
+            self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно.'
+                                                   ' Попробуйте выбрать из списка.')
             self.bot.register_next_step_handler(message, self.process_rate_exchange)
 
-    def process_currency_level(self, message):
-        # Процесс установки уровня валюты
+    def process_currency_level(self, message: telebot.types.Message):
+        """
+        Setting currency level handler
+        :param message: telebot.types.Message
+        :return: None
+        """
         if message.text in list(self.currency_variety_dict.keys()):
             self.button_menu(('Назад',))
             self.bot.send_message(message.chat.id,
                                   'Выбрана валюта: {}\n'
-                                  'Установите ее уровень в ответном сообщении.'.format(message.text),
+                                  'Установите ее уровень в ответном '
+                                  'сообщении.'.format(message.text),
                                   reply_markup=self.menu)
             self.bot.register_next_step_handler(message,
                                                 self.set_currency_level,
@@ -159,11 +200,17 @@ class ExchangeBot:
             self.show_main_menu(message)
             self.process_main_menu()
         else:
-            self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. Поробуйте выбрать из списка.')
+            self.bot.send_message(message.chat.id, 'Вы ввели название валюты неверно. '
+                                                   'Поробуйте выбрать из списка.')
             self.bot.register_next_step_handler(message, self.process_currency_level)
 
-    def set_currency_level(self, message, key):
-        # Непосредстенно сама установка уровня валюты в БД
+    def set_currency_level(self, message: telebot.types.Message, key: str):
+        """
+        Inputing currency level handler
+        :param message: telebot.types.Message
+        :param key: str
+        :return: None
+        """
         if message.text == 'Назад':
             self.rate_menu(message)
             self.bot.register_next_step_handler(message, self.process_currency_level)
@@ -175,19 +222,26 @@ class ExchangeBot:
                                        message.chat.id,
                                        key,
                                        flt_value)
-                self.bot.send_message(message.chat.id, "Установлен следующий уровень для {}: {}.\n"
-                                                       "Ожидайте уведомления.".format(key, flt_value))
+                self.bot.send_message(message.chat.id, "Установлен следующий уровень "
+                                                       "для {}: {}.\nОжидайте "
+                                                       "уведомления.".format(key, flt_value))
                 self.show_main_menu(message)
             except ValueError:
-                self.bot.send_message(message.chat.id, "Это не число. Введите уровень валюты снова, пожалуйста.")
+                self.bot.send_message(message.chat.id, "Это не число. Введите "
+                                                       "уровень валюты снова, пожалуйста.")
                 self.bot.register_next_step_handler(message, self.set_currency_level, key)
 
     def curr_thread(self):
+        """
+        Thread of Checking currency level and sending message to user
+        :return: None
+        """
         while True:
             if self.rpclass.users_to_send and self.rpclass.flag_upd_uts:
                 for key in self.rpclass.users_to_send.keys():
                     for item in self.rpclass.users_to_send[key]:
-                        self.bot.send_message(item[2], '{}, поздравляю! Уровень валюты {} опустился до {}. '
+                        self.bot.send_message(item[2], '{}, поздравляю! Уровень валюты {} '
+                                                       'опустился до {}. '
                                                        'Можно менять :)'.format(item[1],
                                                                                 item[3],
                                                                                 item[4]))
@@ -195,6 +249,10 @@ class ExchangeBot:
                 self.rpclass.flag_upd_uts = False
 
     def execute(self):
+        """
+        Running bot instance
+        :return: None
+        """
         self.bot.remove_webhook()
         self.bot.set_webhook(url='https://protected-oasis-53938.herokuapp.com/' + self.sec_url)
         self.welcome_user()
